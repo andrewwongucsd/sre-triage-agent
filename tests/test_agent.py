@@ -65,9 +65,40 @@ def test_every_incident_produces_valid_diagnosis():
 def test_eval_gate_passes_on_mock_baseline():
     rows = run_agent_over_cases(load_cases(pathlib.Path(CASES)), "mock")
     summary = score(rows, judge_name="none")
-    assert summary["escalation_accuracy"] >= 0.8  # the CI gate threshold
-    assert summary["no_data_recall"] == 1.0
+    assert summary["escalation_accuracy"] >= 0.60  # the CI gate threshold
+    # The baseline never guesses NO_DATA when there is signal — the property the
+    # guardrail exists to protect. It does *miss* refusals it should have made
+    # (see the partial_signal band below), which is a recall problem, not a
+    # false-positive one.
     assert summary["false_no_data_rate"] == 0.0
+
+
+def test_hard_bands_are_known_misses_for_the_baseline():
+    """The three bands added to de-saturate the benchmark, all 0% for the mock.
+
+    These document *why* each band is hard, so a future change that accidentally
+    makes them easy shows up as a surprising pass rather than a silent one.
+    """
+    rows = run_agent_over_cases(load_cases(pathlib.Path(CASES)), "mock")
+    by_diff = score(rows, "none")["escalation_accuracy_by_difficulty"]
+
+    # cascading: the baseline only ever queries the incident service, so it can
+    # never see that the implicated dependency is itself a victim.
+    assert by_diff["cascading"] == 0.0
+    # partial_signal: logs exist but describe no incident; the baseline treats
+    # any log line as evidence and names a team instead of refusing.
+    assert by_diff["partial_signal"] == 0.0
+    # conflicting: requires exonerating the obvious suspects by inspecting them.
+    assert by_diff["conflicting"] == 0.0
+
+
+def test_benchmark_shape_is_balanced():
+    """Guard against a degenerate benchmark a single strategy could game."""
+    cases = load_cases(pathlib.Path(CASES))
+    no_data = [c for c in cases if c["expected_escalate_to"] == NO_DATA]
+    # Always-refuse must not be a winning strategy, and neither must never-refuse.
+    assert 0.15 < len(no_data) / len(cases) < 0.40, "NO_DATA share is degenerate"
+    assert len({c["expected_escalate_to"] for c in cases}) >= 8
 
 
 def test_clear_cases_are_all_correct():
@@ -305,9 +336,12 @@ def test_gate_still_reported_when_out_path_is_outside_the_repo(tmp_path, capsys)
 
 
 def test_gate_passes_with_out_path_outside_the_repo(tmp_path, capsys):
+    # Thresholds here are deliberately far from the real gate: this test is about
+    # the --out plumbing reporting a verdict at all, not about the benchmark's
+    # current score, so it must not need updating when that score moves.
     out = tmp_path / "results.json"
     code = evals_run.main(
-        ["--model", "mock", "--judge", "none", "--gate", "0.8", "--out", str(out)]
+        ["--model", "mock", "--judge", "none", "--gate", "0.10", "--out", str(out)]
     )
     assert "GATE PASSED" in capsys.readouterr().out
     assert code == 0

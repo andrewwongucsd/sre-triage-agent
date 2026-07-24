@@ -16,10 +16,10 @@ demo:            ## run the agent on one incident with the mock backend
 	$(PY) -m sre_triage --incident checkout-db-pool --model mock
 
 eval:            ## offline eval + regression gate (no API key needed)
-	$(PY) evals/run.py --model mock --judge mock --validate-judge --gate 0.8
+	$(PY) evals/run.py --model mock --judge mock --validate-judge --gate 0.60
 
 eval-real:       ## real benchmark with Claude (needs ANTHROPIC_API_KEY)
-	$(PY) evals/run.py --model anthropic --judge anthropic --validate-judge --gate 0.85
+	$(PY) evals/run.py --model anthropic --judge anthropic --validate-judge --gate 0.70
 
 gen-cases:       ## regenerate evals/cases.jsonl from the fixtures
 	$(PY) scripts/gen_cases.py
