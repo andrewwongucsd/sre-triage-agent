@@ -81,6 +81,20 @@ python -m sre_triage --incident reco-featurestore-slow   # real Claude on a hard
 make eval-real                                   # full benchmark with Claude + Claude judge
 ```
 
+`make demo` (mock backend, no key, reproducible) produces the structured
+diagnosis the whole harness scores:
+
+```json
+Incident: checkout-db-pool  (clear)
+{
+  "root_cause":  "postgres-primary pool degrading checkout-api",
+  "evidence":    ["ERROR checkout-api: could not get connection from pool; postgres-primary timeout after 5000ms",
+                  "error_rate 0.2%->8.1%, p99 120ms->2400ms"],
+  "escalate_to": "database-platform",
+  "confidence":  0.8
+}
+```
+
 ## Eval methodology
 
 The benchmark is 43 labeled incidents (`evals/cases.jsonl`, generated from
