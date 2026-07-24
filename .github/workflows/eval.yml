@@ -3,6 +3,12 @@ name: eval
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      compare_judges:
+        description: "Also measure candidate judge models against the human labels"
+        type: boolean
+        default: false
 
 jobs:
   # Hard gate: fully offline (mock backend + heuristic judge). Always runs, no
@@ -40,3 +46,27 @@ jobs:
             exit 0
           fi
           python evals/run.py --model anthropic --judge anthropic --validate-judge --gate 0.85
+
+  # On-demand: measure candidate judge models against the human labels so the
+  # judge is chosen on evidence. Cheap (one call per label per model), so it is
+  # opt-in via workflow_dispatch rather than running on every push.
+  compare-judges:
+    if: github.event_name == 'workflow_dispatch' && inputs.compare_judges
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt
+      - name: compare judges (skips if no secret)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "ANTHROPIC_API_KEY not set — skipping the judge comparison."
+            exit 0
+          fi
+          python scripts/compare_judges.py \
+            --models claude-opus-4-8,claude-sonnet-5,claude-haiku-4-5 \
+            | tee -a "$GITHUB_STEP_SUMMARY"

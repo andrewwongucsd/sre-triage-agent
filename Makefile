@@ -1,4 +1,4 @@
-.PHONY: install test demo eval eval-real gen-cases clean
+.PHONY: install test demo eval eval-real gen-cases compare-judges clean
 
 VENV ?= .venv
 PY   := $(VENV)/bin/python
@@ -23,6 +23,9 @@ eval-real:       ## real benchmark with Claude (needs ANTHROPIC_API_KEY)
 
 gen-cases:       ## regenerate evals/cases.jsonl from the fixtures
 	$(PY) scripts/gen_cases.py
+
+compare-judges:  ## measure candidate judge models against the human labels
+	$(PY) scripts/compare_judges.py --models claude-opus-4-8,claude-sonnet-5,claude-haiku-4-5
 
 clean:
 	rm -rf $(VENV) evals/results/*.json .pytest_cache **/__pycache__
