@@ -13,6 +13,8 @@ diagnosis: likely root cause + which team to escalate to. Ships with a real
 scoring, a validated judge, and a **CI regression gate** that fails the build if
 quality drops.
 
+![demo: the agent produces a structured diagnosis, then the offline eval scores 43 cases and the CI gate passes](docs/demo.gif)
+
 > Origin story: I built a version of this on the raw API for an on-call rotation —
 > dependency→team escalation with a circuit-breaker instinct. This is that idea
 > rebuilt on a proper agent framework, with the evals I didn't have time for the

@@ -1,2 +1,3 @@
 -r requirements.txt
 pytest>=8.0
+Pillow>=10.0   # only for `make gif` (regenerating docs/demo.gif); not needed to run or test
