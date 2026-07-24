@@ -98,8 +98,8 @@ reproducible). **Claude** is `claude-sonnet-5` as both agent and judge
 | — no_data (5 cases) | 100% | 100% |
 | NO_DATA recall (guardrail) | 100% | 100% |
 | false NO_DATA rate | 0% | 0% |
-| root_cause quality (judge) | 25% | 100% |
-| judge vs human agreement / κ | 80% / 0.64 | 80% / 0.656 |
+| root_cause quality (judge) | 25% | 95–100% |
+| judge vs human agreement / κ | 80% / 0.64 | 80% / ≈0.65 |
 
 The gap is entirely in the **ambiguous** band, which is the point of the split.
 Those cases put the logs and the metrics in disagreement: a dependency named in
@@ -110,9 +110,12 @@ drops to 0.75–0.78 on exactly those, versus 0.85–0.9 on the unambiguous ones
 
 Two caveats worth stating plainly:
 
-- **root_cause quality is Claude grading Claude.** That 100% comes from a judge
-  that agrees with human labels only 80% of the time (κ=0.656) and can share the
-  agent's blind spots. It is a secondary metric and not the gate, for this reason.
+- **root_cause quality is Claude grading Claude, and it moves.** Two independent
+  runs of the identical commit — one local, one in CI — scored the deterministic
+  headline metric at exactly 100.0% both times, while the judged root_cause score
+  came back 100% (20/20) and then 95% (19/20), with κ drifting 0.656 → 0.651. No
+  code changed between them. That spread is the whole argument for keeping the
+  reproducible metric as the gate and the judged one as commentary.
 - **The benchmark is saturated at the top.** A frontier model scoring 100% can
   no longer rank *good* against *excellent* here. The CI gate at 0.85 still
   catches regressions, but the next real improvement to this repo is harder
