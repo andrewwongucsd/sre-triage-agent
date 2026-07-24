@@ -67,11 +67,22 @@ make eval-real                                   # full benchmark with Claude + 
 
 ## Eval methodology
 
-The benchmark is 25 labeled incidents (`evals/cases.jsonl`, generated from
-`sre_triage/fixtures.py`) across three difficulties: **clear** (one component
-obviously at fault), **ambiguous** (logs and metrics implicate *different*
-dependencies — the logs are a red herring), and **no_data** (correct answer is
-`NO_DATA`).
+The benchmark is 34 labeled incidents (`evals/cases.jsonl`, generated from
+`sre_triage/fixtures.py`) across six bands, ordered roughly by what they demand
+of the agent:
+
+| band | n | what it tests |
+| --- | --- | --- |
+| `clear` | 14 | one component is unambiguously at fault |
+| `ambiguous` | 6 | logs and metrics implicate *different* dependencies — the logs are a red herring |
+| `no_data` | 5 | no logs and no anomaly; the correct answer is `NO_DATA` |
+| `cascading` | 3 | the implicated dependency is itself a *victim*; the true root is visible only in that dependency's own telemetry, so the agent must query upstream |
+| `partial_signal` | 3 | logs exist but describe no incident (client 4xx, deploy-drain noise, one 500 in 31k). The guardrail does not fire, so the model itself must decline to name a team |
+| `conflicting` | 3 | the obvious suspects are exonerated on inspection — the fault is the service's own release, or the evidence genuinely cannot separate two candidates |
+
+The last three bands exist because the first three stopped discriminating: Claude
+scored 100% on them, so the benchmark could catch a regression but could no
+longer tell a good model from an excellent one.
 
 Three layers of scoring, by design (`evals/run.py`):
 
@@ -112,61 +123,86 @@ Two things worth stating plainly, because the result is not what you'd guess:
 
 ### Results
 
-Both columns are the same 25 cases and the same scorer. **Baseline** is the
+Both columns are the same 34 cases and the same scorer. **Baseline** is the
 offline keyword agent + heuristic judge (`make eval`, no API key, fully
 reproducible). **Claude** is `claude-sonnet-5` as both agent and judge
 (`make eval-real`).
 
 | metric | baseline | Claude |
 | --- | --- | --- |
-| **escalation accuracy (headline)** | **88.0%** | **100.0%** |
-| — clear (14 cases) | 100% | 100% |
-| — ambiguous (6 cases) | 50% | 100% |
-| — no_data (5 cases) | 100% | 100% |
-| NO_DATA recall (guardrail) | 100% | 100% |
+| **escalation accuracy (headline)** | **64.7%** | **85.3%** |
+| — clear (14) | 100% | 100% |
+| — ambiguous (6) | 50% | 100% |
+| — no_data (5) | 100% | 100% |
+| — cascading (3) | 0% | 33% |
+| — partial_signal (3) | 0% | 33% |
+| — conflicting (3) | 0% | 67% |
+| NO_DATA recall (guardrail) | 55.6% | 66.7% |
 | false NO_DATA rate | 0% | 0% |
-| root_cause quality (judge) | 25% | 95–100% |
-| judge vs human agreement / κ | 80% / 0.64 | 80% / ≈0.65 |
+| root_cause quality (judge) | 24% | 90% |
+| judge vs human agreement / κ | 80% / 0.64 | 80% / 0.656 |
 
-The gap is entirely in the **ambiguous** band, which is the point of the split.
-Those cases put the logs and the metrics in disagreement: a dependency named in
-the error logs is a red herring, and the real culprit only shows up in the
-metric series. The keyword baseline trusts the logs and gets 3 of 6 wrong by
-construction. Claude reads past the red herring on all six — and its confidence
-drops to 0.75–0.78 on exactly those, versus 0.85–0.9 on the unambiguous ones.
+Read the shape, not just the headline. On the first three bands Claude is
+perfect and the interesting split is **ambiguous**, where the logs and metrics
+disagree: the baseline trusts the logs and gets 3 of 6 wrong by construction,
+while Claude reads past the red herring on all six — and its confidence drops to
+0.75–0.78 on exactly those, versus 0.85–0.9 elsewhere.
+
+The last three bands are where it now earns its keep. Claude misses 5 of 34
+overall, and **every miss is in a band added specifically because the first
+three had stopped discriminating**:
+
+- **cascading (33%)** — it stops at the first genuinely-degraded dependency and
+  escalates there, rather than querying that dependency and discovering it is a
+  victim. This is the most actionable gap: it is a *procedural* failure, not a
+  reasoning one, and likely closes with a prompt that says to check whether an
+  implicated dependency is itself blocked.
+- **partial_signal (33%)** — present-but-benign signal still reads as an
+  incident. `NO_DATA` recall of 66.7% is the same finding from the other side:
+  the agent under-refuses. Notably `false NO_DATA` stays at **0%** in both
+  columns, so the failure is one-directional — it never refuses when it should
+  answer, only answers when it should refuse.
+- **conflicting (67%)** — mostly handled; it does exonerate healthy dependencies
+  when it inspects them.
 
 Two caveats worth stating plainly:
 
-- **root_cause quality is Claude grading Claude, and it moves.** Across four
-  independent runs (one local, three in CI) the deterministic headline metric was
-  **100.0% every single time**, while the judged root_cause score wandered
-  100% → 95% → 95% → 97.5% and κ sat between 0.651 and 0.656. Two of those runs
-  were the *identical commit*. That spread — a metric moving on its own while the
-  reproducible one holds exactly — is the whole argument for gating CI on the
-  deterministic number and treating the judged one as commentary.
-- **The benchmark is saturated at the top.** A frontier model scoring 100% can
-  no longer rank *good* against *excellent* here. The CI gate at 0.85 still
-  catches regressions, but the next real improvement to this repo is harder
-  cases, not more of the same ones.
+- **root_cause quality is Claude grading Claude, and it moves.** Across five
+  runs the deterministic headline metric reproduced exactly — 100.0% four times
+  on the 25-case benchmark, including twice on the *identical commit* — while the
+  judged root_cause score wandered 100% → 95% → 95% → 97.5% with κ between 0.651
+  and 0.656. A metric that moves on its own while the reproducible one holds is
+  the whole argument for gating CI on the deterministic number.
+- **Still a small benchmark.** 34 cases, and the three new bands are 3 cases
+  each — one case is 33 percentage points. Treat the per-band numbers as
+  directional and the headline as the measurement.
 
 ## CI regression gate
 
 `.github/workflows/eval.yml` runs on every push/PR:
 
 - **`eval-mock`** — offline, deterministic, no secret. Runs the tests and fails
-  the build if escalation accuracy `< 0.8`. This is the build-blocking gate.
-- **`eval-claude`** — runs the real benchmark against Claude, gated at `0.85`,
+  the build if escalation accuracy `< 0.60`. This is the build-blocking gate.
+- **`eval-claude`** — runs the real benchmark against Claude, gated at `0.80`,
   **only if** the `ANTHROPIC_API_KEY` repo secret is set
   (*Settings → Secrets and variables → Actions*); otherwise it skips cleanly.
+- **`compare-judges`** — opt-in via *Run workflow*; measures candidate judge
+  models against the human labels (see [Choosing the judge](#choosing-the-judge)).
+
+Both gates are **ratchets**, set just under the measured score (baseline 64.7%,
+Claude 85.3%) so they detect regression rather than encode an aspiration. When a
+change moves the score, the gate moves with it — deliberately, in the same
+commit, with the new number in the message.
 
 ## Honest limitations
 
 - **Synthetic data.** Tools read fixtures, not real logging/metrics backends.
   The benchmark measures triage *reasoning*, not data plumbing.
-- **Small benchmark, and saturated.** 25 cases — enough to catch regressions,
-  not enough for tight confidence intervals. Claude scores 100%, so the
-  benchmark currently has no headroom to distinguish strong models from each
-  other. Grow it (and make it harder) before trusting small score deltas.
+- **Small benchmark.** 34 cases — enough to catch regressions, not enough for
+  tight confidence intervals, and the three hardest bands are only 3 cases each
+  (one case = 33 points). It is no longer saturated (Claude 85.3%), so it can
+  again rank models rather than just detect regressions, but per-band numbers
+  should be read as directional until the bands are grown.
 - **Judge bias, and too few labels to resolve it.** LLM-as-judge is imperfect
   (here: 80% human agreement, κ≈0.65) and on `make eval-real` the judge and the
   agent are the same model, so they can share blind spots. Swapping in an

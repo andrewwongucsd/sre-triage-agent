@@ -19,7 +19,7 @@ eval:            ## offline eval + regression gate (no API key needed)
 	$(PY) evals/run.py --model mock --judge mock --validate-judge --gate 0.60
 
 eval-real:       ## real benchmark with Claude (needs ANTHROPIC_API_KEY)
-	$(PY) evals/run.py --model anthropic --judge anthropic --validate-judge --gate 0.70
+	$(PY) evals/run.py --model anthropic --judge anthropic --validate-judge --gate 0.80
 
 gen-cases:       ## regenerate evals/cases.jsonl from the fixtures
 	$(PY) scripts/gen_cases.py
