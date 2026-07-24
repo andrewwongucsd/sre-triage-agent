@@ -120,6 +120,41 @@ def test_judge_validation_reports_agreement_and_kappa():
     assert -1.0 <= v["cohen_kappa"] <= 1.0
 
 
+def test_judge_validation_against_model_reference_set():
+    """The independent-model reference set uses a 'verdict' column, not 'human_verdict'."""
+    v = validate_judge(
+        MockJudge(),
+        str(ROOT / "evals" / "reference_labels.jsonl"),
+        verdict_key="verdict",
+    )
+    assert v["n"] == 30
+    assert 0.0 <= v["agreement"] <= 1.0
+    # Every disagreement row carries the reference verdict under the neutral key.
+    for d in v["disagreements"]:
+        assert d["reference"] in ("correct", "partial", "wrong")
+
+
+def test_reference_labels_are_honestly_provenanced():
+    """Guard the honesty invariant: reference labels are model-graded, and say so.
+
+    They must NOT masquerade as human labels — every row carries an explicit,
+    non-human verdict_source. This test exists so a careless edit that drops the
+    provenance (or renames the field to human_verdict) fails loudly.
+    """
+    import json
+
+    rows = [
+        json.loads(line)
+        for line in (ROOT / "evals" / "reference_labels.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert rows, "reference_labels.jsonl is empty"
+    for r in rows:
+        assert "human_verdict" not in r, "model labels must not use the human_verdict key"
+        assert r["verdict_source"].startswith("claude-"), "verdict_source must name the grading model"
+        assert r["verdict"] in ("correct", "partial", "wrong")
+
+
 def test_cohen_kappa_perfect_and_chance():
     assert cohen_kappa(["correct", "wrong"], ["correct", "wrong"]) == 1.0
     # identical single-category labelings -> undefined-ish; our impl returns 1.0

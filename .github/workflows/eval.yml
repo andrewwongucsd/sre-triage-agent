@@ -67,6 +67,13 @@ jobs:
             echo "ANTHROPIC_API_KEY not set — skipping the judge comparison."
             exit 0
           fi
+          echo "### Judges vs the 15 human labels" | tee -a "$GITHUB_STEP_SUMMARY"
           python scripts/compare_judges.py \
+            --models claude-opus-4-8,claude-sonnet-5,claude-haiku-4-5 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "### Judges vs the 30 independent-model (Opus) reference labels" | tee -a "$GITHUB_STEP_SUMMARY"
+          python scripts/compare_judges.py \
+            --labels evals/reference_labels.jsonl --verdict-key verdict \
             --models claude-opus-4-8,claude-sonnet-5,claude-haiku-4-5 \
             | tee -a "$GITHUB_STEP_SUMMARY"

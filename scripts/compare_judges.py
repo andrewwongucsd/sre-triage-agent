@@ -36,8 +36,14 @@ def main(argv: list[str] | None = None) -> int:
         help="comma-separated Anthropic model ids to evaluate as judges "
         "(needs ANTHROPIC_API_KEY); the offline heuristic judge always runs",
     )
-    p.add_argument("--labels", default=str(LABELS))
+    p.add_argument("--labels", default=str(LABELS),
+                   help="label file to validate against (default: the human labels)")
+    p.add_argument("--verdict-key", default="human_verdict",
+                   help="verdict column: human_verdict (human labels) or verdict "
+                   "(evals/reference_labels.jsonl, independent-model labels)")
     args = p.parse_args(argv)
+
+    reference = "humans" if args.verdict_key == "human_verdict" else "the reference model"
 
     candidates: list[tuple[str, object]] = [("mock (keyword heuristic)", MockJudge())]
     for model in [m.strip() for m in args.models.split(",") if m.strip()]:
@@ -49,11 +55,11 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = []
     for name, judge in candidates:
-        v = validate_judge(judge, args.labels)
+        v = validate_judge(judge, args.labels, verdict_key=args.verdict_key)
         rows.append((name, v))
 
     n = rows[0][1]["n"]
-    print(f"## Judge comparison ({n} hand-labeled examples)\n")
+    print(f"## Judge comparison ({n} examples, reference = {reference})\n")
     print("| judge | agreement | Cohen's κ | disagreements |")
     print("| --- | --- | --- | --- |")
     for name, v in rows:
@@ -63,18 +69,18 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     best_name, best_v = max(rows, key=lambda r: (r[1]["cohen_kappa"], r[1]["agreement"]))
-    print(f"\nBest agreement with humans: **{best_name}** (κ={best_v['cohen_kappa']})")
+    print(f"\nBest agreement with {reference}: **{best_name}** (κ={best_v['cohen_kappa']})")
     print(
         "\nκ is the honest number here: agreement alone is inflated by the fact "
         "that most verdicts are 'correct', which a judge can match by guessing."
     )
 
-    # Show where the best judge and the humans actually part ways — the
+    # Show where the best judge and the reference actually part ways — the
     # disagreements are the interesting artifact, not the summary statistic.
     if best_v["disagreements"]:
-        print(f"\n### Where {best_name} disagrees with the humans\n")
+        print(f"\n### Where {best_name} disagrees with {reference}\n")
         for d in best_v["disagreements"]:
-            print(f"- human=`{d['human']}` judge=`{d['judge']}`")
+            print(f"- reference=`{d['reference']}` judge=`{d['judge']}`")
             print(f"  - expected: {d['expected']}")
             print(f"  - predicted: {d['predicted']}")
     return 0

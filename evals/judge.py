@@ -134,20 +134,29 @@ def cohen_kappa(a: list[str], b: list[str]) -> float:
     return (po - pe) / (1 - pe)
 
 
-def validate_judge(judge: Judge, labels_path: str) -> dict[str, Any]:
-    """Run ``judge`` over hand-labeled (predicted, expected, human_verdict) rows."""
+def validate_judge(judge: Judge, labels_path: str, verdict_key: str = "human_verdict") -> dict[str, Any]:
+    """Measure ``judge`` against a reference labeling of (predicted, expected) rows.
+
+    ``verdict_key`` names the column holding the reference verdict:
+      - ``human_verdict`` (default) — ``evals/human_labels.jsonl``, graded by a human.
+      - ``verdict``               — ``evals/reference_labels.jsonl``, graded by an
+                                    *independent model* (see that file's provenance).
+    The two answer different questions: agreement with humans is the one that
+    matters; agreement with another model bounds how model-specific the judge's
+    grading is. Neither is ground truth — see the README caveat.
+    """
     rows = [json.loads(line) for line in open(labels_path) if line.strip()]
-    human = [r["human_verdict"] for r in rows]
+    reference = [r[verdict_key] for r in rows]
     machine = [judge.classify(r["predicted_root_cause"], r["expected_root_cause"]) for r in rows]
-    agree = sum(1 for h, m in zip(human, machine) if h == m)
+    agree = sum(1 for h, m in zip(reference, machine) if h == m)
     disagreements = [
         {"predicted": r["predicted_root_cause"], "expected": r["expected_root_cause"],
-         "human": h, "judge": m}
-        for r, h, m in zip(rows, human, machine) if h != m
+         "reference": h, "judge": m}
+        for r, h, m in zip(rows, reference, machine) if h != m
     ]
     return {
         "n": len(rows),
         "agreement": agree / len(rows) if rows else 0.0,
-        "cohen_kappa": round(cohen_kappa(human, machine), 3),
+        "cohen_kappa": round(cohen_kappa(reference, machine), 3),
         "disagreements": disagreements,
     }

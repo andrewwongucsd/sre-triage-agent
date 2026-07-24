@@ -94,7 +94,35 @@ Three layers of scoring, by design (`evals/run.py`):
    (correct / partial / wrong) where determinism is impossible.
 3. **Judge validation.** `validate_judge()` runs the judge against 15
    hand-labeled examples (`evals/human_labels.jsonl`) and reports
-   agreement + Cohen's κ — so the judge is *measured*, not trusted.
+   agreement + Cohen's κ — so the judge is *measured*, not trusted. A second,
+   30-example reference set (`evals/reference_labels.jsonl`) provides a
+   cross-model check — see below.
+
+### Two reference sets, honestly labeled
+
+Judge quality is measured against two references that answer different questions:
+
+| set | n | graded by | what agreement with it means |
+| --- | --- | --- | --- |
+| `human_labels.jsonl` | 15 | a human | the number that matters — does the judge track human judgment? |
+| `reference_labels.jsonl` | 30 | `claude-opus-4-8` | a cross-model check — how model-specific is the judge's grading? |
+
+The reference set is **model-graded, and says so**: every row carries a
+`verdict_source` naming the grading model, and the field is `verdict`, never
+`human_verdict`. It is *not* a substitute for human labels and is never counted
+as human agreement — doing so would make "I validated my judge against humans" a
+false claim. Its value is orthogonal: the judge is `claude-sonnet-5`, the
+reference grader is `claude-opus-4-8`, so their agreement bounds how much the
+judge's verdicts are an artifact of one model versus a robust reading of the
+rubric. (When `claude-opus-4-8` is itself run as a candidate judge against this
+set, that row is self-agreement, not an independent check — read the
+`claude-sonnet-5` and `claude-haiku-4-5` rows for cross-model signal.)
+
+An early result already earns its keep: the crude keyword judge agrees with the
+human labels 80% but with the 30-example Opus reference only **43%** — the
+curated 15 were too easy to expose it, a broader set of the agent's actual
+outputs was not. Grow both sets before trusting small deltas (`make
+compare-judges` / `make compare-judges-ref`).
 
 ### Choosing the judge
 
