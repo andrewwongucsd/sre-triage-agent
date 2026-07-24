@@ -83,6 +83,33 @@ Three layers of scoring, by design (`evals/run.py`):
    hand-labeled examples (`evals/human_labels.jsonl`) and reports
    agreement + Cohen's κ — so the judge is *measured*, not trusted.
 
+### Choosing the judge
+
+`make eval-real` runs the same model as agent *and* judge, which is the standard
+objection to LLM-as-judge: shared blind spots. Rather than assume an independent
+judge fixes that, `make compare-judges` measures each candidate against the same
+human labels:
+
+| judge | agreement | Cohen's κ | disagreements |
+| --- | --- | --- | --- |
+| **claude-sonnet-5** (default) | 80.0% | **0.656** | 3/15 |
+| mock (keyword heuristic) | 80.0% | 0.640 | 3/15 |
+| claude-opus-4-8 | 73.3% | 0.577 | 4/15 |
+| claude-haiku-4-5 | 60.0% | 0.323 | 6/15 |
+
+Two things worth stating plainly, because the result is not what you'd guess:
+
+- **The more capable model was not the better judge.** `claude-opus-4-8` agreed
+  with the humans *less* than `claude-sonnet-5`, and less than the offline
+  keyword heuristic. The default stays `claude-sonnet-5` — now on evidence
+  rather than inertia.
+- **This comparison is underpowered, and that is the more useful finding.** At
+  n=15 a single flipped verdict moves κ by ≈0.08 — the entire gap between the
+  top three rows. Only `claude-haiku-4-5` (6/15) is distinguishable from the
+  rest. So the next real investment in this harness is **more human labels**,
+  not a different judge model. Treat the ordering above as "haiku is worse, the
+  others are a tie" and nothing finer.
+
 ### Results
 
 Both columns are the same 25 cases and the same scorer. **Baseline** is the
@@ -140,9 +167,13 @@ Two caveats worth stating plainly:
   not enough for tight confidence intervals. Claude scores 100%, so the
   benchmark currently has no headroom to distinguish strong models from each
   other. Grow it (and make it harder) before trusting small score deltas.
-- **Judge bias.** LLM-as-judge is imperfect (here: 80% human agreement, κ≈0.65)
-  and can share the agent model's blind spots — on `make eval-real` the judge
-  and the agent are the same model. Keep it secondary and spot-check.
+- **Judge bias, and too few labels to resolve it.** LLM-as-judge is imperfect
+  (here: 80% human agreement, κ≈0.65) and on `make eval-real` the judge and the
+  agent are the same model, so they can share blind spots. Swapping in an
+  independent judge did *not* measurably help (see Choosing the judge), but with
+  only 15 human labels the comparison cannot resolve differences smaller than one
+  verdict. Growing `human_labels.jsonl` is the prerequisite for answering this
+  properly.
 - **Guardrail is coarse.** "No logs and no anomaly ⇒ NO_DATA" is deliberately
   simple; real triage has partial-signal cases this doesn't model yet.
 
