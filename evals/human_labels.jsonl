@@ -1,0 +1,15 @@
+{"predicted_root_cause": "postgres-primary connection pool exhaustion causing checkout 5xx", "expected_root_cause": "postgres-primary connection pool exhaustion causing checkout 5xx", "human_verdict": "correct"}
+{"predicted_root_cause": "postgres-primary is slow", "expected_root_cause": "postgres-primary connection pool exhaustion causing checkout 5xx", "human_verdict": "partial"}
+{"predicted_root_cause": "redis-cluster maxmemory evictions dropping cart keys", "expected_root_cause": "redis-cluster hitting maxmemory and evicting active cart keys", "human_verdict": "correct"}
+{"predicted_root_cause": "the database is having issues", "expected_root_cause": "postgres-replica replication lag serving stale reads", "human_verdict": "wrong"}
+{"predicted_root_cause": "stripe-gateway timeouts stalling captures", "expected_root_cause": "stripe-gateway upstream timeouts stalling payment captures", "human_verdict": "correct"}
+{"predicted_root_cause": "kafka-broker consumer lag", "expected_root_cause": "kafka-broker ISR shrink blocking notification produce/consume", "human_verdict": "partial"}
+{"predicted_root_cause": "object-store 503 errors on PUT breaking uploads", "expected_root_cause": "object-store returning 503/500 on PUT, failing uploads", "human_verdict": "correct"}
+{"predicted_root_cause": "auth-service rejecting valid sessions", "expected_root_cause": "auth-service rejecting valid sessions (introspection failure)", "human_verdict": "correct"}
+{"predicted_root_cause": "cache-redis problem", "expected_root_cause": "postgres-primary lock contention on the webhook outbox table (redis rate-limiting is a symptom)", "human_verdict": "wrong"}
+{"predicted_root_cause": "envoy-gateway 503s", "expected_root_cause": "object-store (feature store) read latency causing rec-ranker timeouts surfaced as envoy 503s", "human_verdict": "wrong"}
+{"predicted_root_cause": "elasticsearch slow queries causing stale suggestions", "expected_root_cause": "elasticsearch query slowdown driving cache misses in search-suggest", "human_verdict": "correct"}
+{"predicted_root_cause": "token-service signing-key rotation invalidated JWTs", "expected_root_cause": "token-service botched signing-key rotation invalidating JWTs", "human_verdict": "correct"}
+{"predicted_root_cause": "recommendation-api memory leak OOM after rollout", "expected_root_cause": "recommendation-api memory leak / OOM after model rollout", "human_verdict": "correct"}
+{"predicted_root_cause": "NO_DATA", "expected_root_cause": "NO_DATA", "human_verdict": "correct"}
+{"predicted_root_cause": "postgres-primary slow", "expected_root_cause": "NO_DATA", "human_verdict": "wrong"}

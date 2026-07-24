@@ -1,0 +1,42 @@
+name: eval
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # Hard gate: fully offline (mock backend + heuristic judge). Always runs, no
+  # secret required, deterministic — this is the build-blocking regression gate.
+  eval-mock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements-dev.txt
+      - name: unit tests
+        run: python -m pytest tests/ -q
+      - name: eval regression gate (escalation accuracy >= 0.8)
+        run: python evals/run.py --model mock --judge mock --validate-judge --gate 0.8
+
+  # Real benchmark against Claude. Runs only when the ANTHROPIC_API_KEY secret
+  # is configured (Settings > Secrets and variables > Actions). Applies a
+  # tighter gate since the real model should beat the keyword baseline.
+  eval-claude:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt
+      - name: eval with Claude (skips if no secret)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "ANTHROPIC_API_KEY not set — skipping the real-model eval."
+            exit 0
+          fi
+          python evals/run.py --model anthropic --judge anthropic --validate-judge --gate 0.85

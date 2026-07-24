@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Keep the results dir but not local run artifacts.
+evals/results/*.json
+!evals/results/.gitkeep
