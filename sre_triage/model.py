@@ -29,9 +29,6 @@ Rules:
 - Escalate to the team that OWNS the true root-cause dependency, not necessarily \
 the team that owns the failing service. A dependency named in error logs may be a \
 red herring if the metrics implicate a different one.
-- Before escalating to a dependency, query THAT dependency's own logs and metrics. \
-A degraded dependency is often itself blocked on something further upstream. \
-Escalate to the root cause, not to the first component that looks broken.
 - If the tools surface no usable signal (empty logs AND no metric anomaly), you \
 MUST return escalate_to="NO_DATA" and root_cause="NO_DATA". Never guess a team \
 without evidence.
