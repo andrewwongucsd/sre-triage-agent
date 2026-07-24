@@ -45,7 +45,7 @@ jobs:
             echo "ANTHROPIC_API_KEY not set — skipping the real-model eval."
             exit 0
           fi
-          python evals/run.py --model anthropic --judge anthropic --validate-judge --gate 0.80
+          python evals/run.py --model anthropic --judge anthropic --validate-judge --gate 0.75
 
   # On-demand: measure candidate judge models against the human labels so the
   # judge is chosen on evidence. Cheap (one call per label per model), so it is
