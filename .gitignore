@@ -5,3 +5,17 @@ __pycache__/
 # Keep the results dir but not local run artifacts.
 evals/results/*.json
 !evals/results/.gitkeep
+
+# Internal planning/context docs -- kept local, deliberately not published.
+/TODO.md
+/ROADMAP.md
+/HISTORY.md
+/CONTEXT.md
+/AGENTS.md
+/CLAUDE.md
+/NOTES.md
+/PLAN.md
+/SCRATCH.md
+/JOURNAL.md
+/DECISIONS.md
+.claude/settings.local.json
