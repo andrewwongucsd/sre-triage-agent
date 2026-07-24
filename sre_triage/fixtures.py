@@ -9,6 +9,11 @@ difficulty:
   ambiguous  — logs and metrics point at different dependencies; a keyword
                baseline that trusts the logs gets these wrong.
   no_data    — no logs, no metric anomaly; correct answer is NO_DATA.
+
+Telemetry is per-service. Each incident always carries signal for its own
+service; pass ``per_service={"dep-name": _svc(...)}`` to give an upstream
+dependency its own logs and metrics. Anything not defined returns an explicit
+empty result rather than the incident service's rows relabelled.
 """
 
 from __future__ import annotations
@@ -21,6 +26,20 @@ def _dep_map(service: str, owning_team: str, *upstream: tuple[str, str]) -> dict
         "service": service,
         "owning_team": owning_team,
         "upstream": [{"name": n, "team": t} for n, t in upstream],
+    }
+
+
+def _svc(
+    log_lines: list[str],
+    error_terms: list[str],
+    anomaly: bool,
+    summary: str,
+    implicated: list[str] | None = None,
+) -> dict[str, Any]:
+    """One dependency's own telemetry, for an incident's ``per_service`` map."""
+    return {
+        "logs": {"lines": log_lines, "error_terms": error_terms},
+        "metrics": {"anomaly": anomaly, "summary": summary, "implicated": implicated or []},
     }
 
 
@@ -37,6 +56,7 @@ def _inc(
     expected_escalate_to: str,
     expected_root_cause: str,
     difficulty: str,
+    per_service: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "id": id,
@@ -48,6 +68,11 @@ def _inc(
             "dependency_map": dep_map,
             "logs": {"lines": log_lines, "error_terms": error_terms},
             "metrics": {"anomaly": anomaly, "summary": summary, "implicated": implicated},
+            # Telemetry for upstream dependencies, keyed by service name. Absent
+            # entries return an explicit empty result — see tools.py. Build these
+            # with _svc(); needed for cases where the agent must investigate a
+            # dependency directly rather than infer it from the parent's signal.
+            "per_service": per_service or {},
         },
         "label": {
             "expected_escalate_to": expected_escalate_to,

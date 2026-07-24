@@ -13,10 +13,15 @@ import evals.run as evals_run  # noqa: E402
 from evals.judge import MockJudge, cohen_kappa, validate_judge  # noqa: E402
 from evals.run import load_cases, run_agent_over_cases, score  # noqa: E402
 from sre_triage.agent import diagnose  # noqa: E402
-from sre_triage.fixtures import INCIDENTS, by_id  # noqa: E402
+from sre_triage.fixtures import INCIDENTS, _svc, by_id  # noqa: E402
 from sre_triage.model import MockBackend, _transcript_to_anthropic  # noqa: E402
 from sre_triage.schemas import NO_DATA, ModelResponse, ToolCall  # noqa: E402
-from sre_triage.tools import set_active_incident  # noqa: E402
+from sre_triage.tools import (  # noqa: E402
+    get_dependency_map,
+    query_logs,
+    query_metrics,
+    set_active_incident,
+)
 
 CASES = str(ROOT / "evals" / "cases.jsonl")
 
@@ -225,6 +230,64 @@ def test_nudge_recovers_a_model_that_forgot_to_gather():
 def test_quiet_window_and_missing_tools_give_different_reasons():
     quiet = _run("quiet-slowness")  # mock queries; the window really is empty
     assert "no logs and no metric anomaly" in quiet.evidence[0]
+
+
+# --------------------------------------------------------------------------- #
+# Tools answer per service — asking about a dependency must not return the
+# incident service's telemetry under the dependency's name.
+# --------------------------------------------------------------------------- #
+def test_dependency_query_does_not_return_the_parents_telemetry():
+    inc = by_id("checkout-db-pool")
+    set_active_incident(inc)
+
+    parent = query_logs("checkout-api")
+    dep = query_logs("postgres-primary")  # a real upstream, no telemetry of its own
+
+    assert parent["lines"], "incident service should have logs"
+    assert dep["lines"] == [], "dependency must not inherit the parent's log lines"
+    assert dep["service"] == "postgres-primary"
+    assert query_metrics("postgres-primary")["anomaly"] is False
+
+
+def test_per_service_telemetry_is_returned_when_the_fixture_defines_it():
+    inc = by_id("checkout-db-pool")
+    inc = {
+        **inc,
+        "signal": {
+            **inc["signal"],
+            "per_service": {
+                "postgres-primary": _svc(
+                    ["ERROR postgres-primary: max_connections reached"],
+                    ["max_connections"],
+                    True,
+                    "active_connections 90->100 (limit 100)",
+                )
+            },
+        },
+    }
+    set_active_incident(inc)
+
+    dep = query_logs("postgres-primary")
+    assert dep["lines"] == ["ERROR postgres-primary: max_connections reached"]
+    assert query_metrics("postgres-primary")["anomaly"] is True
+    # ...and the parent's own telemetry is untouched.
+    assert "could not get connection from pool" in query_logs("checkout-api")["lines"][0]
+
+
+def test_dependency_map_resolves_per_service():
+    set_active_incident(by_id("checkout-db-pool"))
+
+    own = get_dependency_map("checkout-api")
+    assert own["owning_team"] == "commerce-core"
+    assert len(own["upstream"]) == 3
+
+    dep = get_dependency_map("postgres-primary")  # leaf: known owner, no upstream
+    assert dep["owning_team"] == "database-platform"
+    assert dep["upstream"] == []
+
+    unknown = get_dependency_map("not-a-real-service")
+    assert unknown["owning_team"] is None
+    assert unknown["error"] == "unknown service"
 
 
 # --------------------------------------------------------------------------- #
