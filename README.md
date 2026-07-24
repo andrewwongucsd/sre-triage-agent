@@ -83,27 +83,40 @@ Three layers of scoring, by design (`evals/run.py`):
    hand-labeled examples (`evals/human_labels.jsonl`) and reports
    agreement + Cohen's κ — so the judge is *measured*, not trusted.
 
-### Sample results (mock baseline, `make eval`)
+### Results
 
-Reproducible offline numbers from the keyword-baseline agent + heuristic judge:
+Both columns are the same 25 cases and the same scorer. **Baseline** is the
+offline keyword agent + heuristic judge (`make eval`, no API key, fully
+reproducible). **Claude** is `claude-sonnet-5` as both agent and judge
+(`make eval-real`).
 
-| metric | value |
-| --- | --- |
-| **escalation accuracy (headline)** | **88.0%** (25 cases) |
-| — clear | 100% |
-| — ambiguous | 50% |
-| — no_data | 100% |
-| NO_DATA recall (guardrail) | 100% |
-| false NO_DATA rate | 0% |
-| root_cause quality (heuristic judge) | 25% |
-| judge vs human agreement / κ | 80% / 0.64 |
+| metric | baseline | Claude |
+| --- | --- | --- |
+| **escalation accuracy (headline)** | **88.0%** | **100.0%** |
+| — clear (14 cases) | 100% | 100% |
+| — ambiguous (6 cases) | 50% | 100% |
+| — no_data (5 cases) | 100% | 100% |
+| NO_DATA recall (guardrail) | 100% | 100% |
+| false NO_DATA rate | 0% | 0% |
+| root_cause quality (judge) | 25% | 100% |
+| judge vs human agreement / κ | 80% / 0.64 | 80% / 0.656 |
 
-Read this the way it's meant to be read: the baseline nails the deterministic
-routing and the guardrail, but the **ambiguous** cases (50%) and the low
-**root_cause quality** are exactly where a real reasoning model should win — run
-`make eval-real` to see Claude's numbers on the same benchmark. The judge itself
-is only 80%/κ=0.64 against humans, which is *why* root_cause is a secondary
-metric, not the gate.
+The gap is entirely in the **ambiguous** band, which is the point of the split.
+Those cases put the logs and the metrics in disagreement: a dependency named in
+the error logs is a red herring, and the real culprit only shows up in the
+metric series. The keyword baseline trusts the logs and gets 3 of 6 wrong by
+construction. Claude reads past the red herring on all six — and its confidence
+drops to 0.75–0.78 on exactly those, versus 0.85–0.9 on the unambiguous ones.
+
+Two caveats worth stating plainly:
+
+- **root_cause quality is Claude grading Claude.** That 100% comes from a judge
+  that agrees with human labels only 80% of the time (κ=0.656) and can share the
+  agent's blind spots. It is a secondary metric and not the gate, for this reason.
+- **The benchmark is saturated at the top.** A frontier model scoring 100% can
+  no longer rank *good* against *excellent* here. The CI gate at 0.85 still
+  catches regressions, but the next real improvement to this repo is harder
+  cases, not more of the same ones.
 
 ## CI regression gate
 
@@ -119,10 +132,13 @@ metric, not the gate.
 
 - **Synthetic data.** Tools read fixtures, not real logging/metrics backends.
   The benchmark measures triage *reasoning*, not data plumbing.
-- **Small benchmark.** 25 cases — enough to catch regressions, not enough for
-  tight confidence intervals. Grow it before trusting small score deltas.
-- **Judge bias.** LLM-as-judge is imperfect (here: 80% human agreement, κ=0.64)
-  and can share the agent model's blind spots. Keep it secondary and spot-check.
+- **Small benchmark, and saturated.** 25 cases — enough to catch regressions,
+  not enough for tight confidence intervals. Claude scores 100%, so the
+  benchmark currently has no headroom to distinguish strong models from each
+  other. Grow it (and make it harder) before trusting small score deltas.
+- **Judge bias.** LLM-as-judge is imperfect (here: 80% human agreement, κ≈0.65)
+  and can share the agent model's blind spots — on `make eval-real` the judge
+  and the agent are the same model. Keep it secondary and spot-check.
 - **Guardrail is coarse.** "No logs and no anomaly ⇒ NO_DATA" is deliberately
   simple; real triage has partial-signal cases this doesn't model yet.
 
