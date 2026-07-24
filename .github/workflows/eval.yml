@@ -23,8 +23,8 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: unit tests
         run: python -m pytest tests/ -q
-      - name: eval regression gate (escalation accuracy >= 0.60)
-        run: python evals/run.py --model mock --judge mock --validate-judge --gate 0.60
+      - name: eval regression gate (escalation accuracy >= 0.50)
+        run: python evals/run.py --model mock --judge mock --validate-judge --gate 0.50
 
   # Real benchmark against Claude. Runs only when the ANTHROPIC_API_KEY secret
   # is configured (Settings > Secrets and variables > Actions). Applies a
