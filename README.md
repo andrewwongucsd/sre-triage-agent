@@ -143,29 +143,45 @@ compare-judges` / `make compare-judges-ref`).
 ### Choosing the judge
 
 `make eval-real` runs the same model as agent *and* judge, which is the standard
-objection to LLM-as-judge: shared blind spots. Rather than assume an independent
-judge fixes that, `make compare-judges` measures each candidate against the same
-human labels:
+objection to LLM-as-judge: shared blind spots. Rather than assume that's fine,
+`make compare-judges` measures each candidate against both reference sets.
+
+**Against the 15 human labels** (higher κ = closer to human judgment):
 
 | judge | agreement | Cohen's κ | disagreements |
 | --- | --- | --- | --- |
-| **claude-sonnet-5** (default) | 80.0% | **0.656** | 3/15 |
+| **claude-sonnet-5** (default) | 86.7% | **0.771** | 2/15 |
+| claude-opus-4-8 | 80.0% | 0.679 | 3/15 |
 | mock (keyword heuristic) | 80.0% | 0.640 | 3/15 |
-| claude-opus-4-8 | 73.3% | 0.577 | 4/15 |
-| claude-haiku-4-5 | 60.0% | 0.323 | 6/15 |
+| claude-haiku-4-5 | 73.3% | 0.565 | 4/15 |
 
-Two things worth stating plainly, because the result is not what you'd guess:
+**Against the 30 independent-model (Opus) reference labels** — the harder set,
+built from the agent's actual outputs across all six bands:
 
-- **The more capable model was not the better judge.** `claude-opus-4-8` agreed
-  with the humans *less* than `claude-sonnet-5`, and less than the offline
-  keyword heuristic. The default stays `claude-sonnet-5` — now on evidence
-  rather than inertia.
-- **This comparison is underpowered, and that is the more useful finding.** At
-  n=15 a single flipped verdict moves κ by ≈0.08 — the entire gap between the
-  top three rows. Only `claude-haiku-4-5` (6/15) is distinguishable from the
-  rest. So the next real investment in this harness is **more human labels**,
-  not a different judge model. Treat the ordering above as "haiku is worse, the
-  others are a tie" and nothing finer.
+| judge | agreement | Cohen's κ | disagreements |
+| --- | --- | --- | --- |
+| **claude-sonnet-5** | 66.7% | **0.474** | 10/30 |
+| claude-opus-4-8 | 63.3% | 0.385 | 11/30 |
+| claude-haiku-4-5 | 56.7% | 0.316 | 13/30 |
+| mock (keyword heuristic) | 43.3% | 0.124 | 17/30 |
+
+Three things worth stating plainly:
+
+- **The default is validated, not assumed.** `claude-sonnet-5` is the best judge
+  on both sets — it tops the human labels (κ=0.771) and the cross-model set
+  (κ=0.474). The default stays where it was, now on evidence.
+- **root_cause grading is genuinely hard, so the judged metric is soft.** Every
+  judge drops sharply on the harder set — the best manages κ=0.474, and even
+  `claude-opus-4-8` grading against labels *another Opus wrote* agrees only 63%.
+  A grader that can't fully agree with its own model family is a grader whose
+  90%-ish `root_cause quality` scores should be read as "directionally good," not
+  precise. This is exactly why that metric is secondary and the CI gate keys on
+  the deterministic one.
+- **Still underpowered — the numbers move.** On the *same* 15 human labels,
+  `claude-sonnet-5` scored κ between 0.651 and 0.656 on earlier runs and κ=0.771
+  here, nothing changed but sampling. At n=15 one flipped verdict moves κ by ≈0.08. The
+  next real investment is **more labels** (`scripts/make_label_pairs.py` scaffolds
+  them), not a different judge.
 
 ## Results
 
