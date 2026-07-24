@@ -18,6 +18,22 @@ quality drops.
 > rebuilt on a proper agent framework, with the evals I didn't have time for the
 > first time.
 
+## Results at a glance
+
+Same 43-case benchmark, same scorer, two agents. Full breakdown and caveats in
+[Results](#results).
+
+| escalation accuracy (exact match on team) | keyword baseline | Claude |
+| --- | --- | --- |
+| **headline** | **53.5%** | **79.1%** |
+| on the hard bands (cascading / partial-signal / conflicting) | ~6% | ~50% |
+| guardrail: false `NO_DATA` (refusing when signal exists) | 0% | 0% |
+
+The gap is the point: the benchmark is built so the keyword baseline *can't* win
+the hard cases, and a reasoning model must actually read past red-herring logs,
+inspect dependencies, and know when to refuse. Every number here is produced by
+`make eval` (offline, no key) and `make eval-real` (Claude), and gated in CI.
+
 ## Why this exists
 
 Two things separate "I've called an LLM API" from "I build agent systems":
@@ -151,7 +167,7 @@ Two things worth stating plainly, because the result is not what you'd guess:
   not a different judge model. Treat the ordering above as "haiku is worse, the
   others are a tie" and nothing finer.
 
-### Results
+## Results
 
 Both columns are the same 43 cases and the same scorer. **Baseline** is the
 offline keyword agent + heuristic judge (`make eval`, no API key, fully
