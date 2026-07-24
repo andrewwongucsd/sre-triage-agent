@@ -110,12 +110,13 @@ drops to 0.75–0.78 on exactly those, versus 0.85–0.9 on the unambiguous ones
 
 Two caveats worth stating plainly:
 
-- **root_cause quality is Claude grading Claude, and it moves.** Two independent
-  runs of the identical commit — one local, one in CI — scored the deterministic
-  headline metric at exactly 100.0% both times, while the judged root_cause score
-  came back 100% (20/20) and then 95% (19/20), with κ drifting 0.656 → 0.651. No
-  code changed between them. That spread is the whole argument for keeping the
-  reproducible metric as the gate and the judged one as commentary.
+- **root_cause quality is Claude grading Claude, and it moves.** Across four
+  independent runs (one local, three in CI) the deterministic headline metric was
+  **100.0% every single time**, while the judged root_cause score wandered
+  100% → 95% → 95% → 97.5% and κ sat between 0.651 and 0.656. Two of those runs
+  were the *identical commit*. That spread — a metric moving on its own while the
+  reproducible one holds exactly — is the whole argument for gating CI on the
+  deterministic number and treating the judged one as commentary.
 - **The benchmark is saturated at the top.** A frontier model scoring 100% can
   no longer rank *good* against *excellent* here. The CI gate at 0.85 still
   catches regressions, but the next real improvement to this repo is harder
