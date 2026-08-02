@@ -215,9 +215,9 @@ reproducible). **Claude** is `claude-sonnet-5` as both agent and judge
 | — cascading (6) | 0% | 17% |
 | — partial_signal (6) | 0% | 67% |
 | — conflicting (6) | 17% | 67% |
-| NO_DATA recall (guardrail) | 46.2% | 69.2% |
+| NO_DATA recall (guardrail) | 38.5% | 69.2% |
 | false NO_DATA rate | 0% | 0% |
-| root_cause quality (judge) | ~24% | 88% |
+| root_cause quality (judge) | 21.7% | 88% |
 | judge vs human agreement / κ | 80% / 0.64 | 80–87% / 0.65–0.77 |
 
 Read the shape, not just the headline. On the first three bands Claude is
