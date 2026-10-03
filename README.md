@@ -120,8 +120,9 @@ the per-band numbers noise — see the caveat below, they are still small.
 
 Three layers of scoring, by design (`evals/run.py`):
 
-1. **Headline — deterministic.** Exact match on `escalate_to`. Reproducible, no
-   judge required. This is what the CI gate uses.
+1. **Headline — graded deterministically.** Exact match on `escalate_to`, no
+   judge required. This is what the CI gate uses. The agent itself samples, so
+   the score can move by a case between runs — see the caveat below.
 2. **Secondary — LLM-as-judge.** Claude grades `root_cause` quality
    (correct / partial / wrong) where determinism is impossible.
 3. **Judge validation.** `validate_judge()` runs the judge against 15
@@ -247,13 +248,15 @@ those three, and each miss points at a different weakness:
 
 Two caveats worth stating plainly:
 
-- **root_cause quality is Claude grading Claude, and it moves.** Across six runs
-  the deterministic headline metric reproduced exactly for a given benchmark,
-  while the judged root_cause score wandered (100% → 95% → 95% → 97.5% → 90% →
-  88%) — and the judge's own κ against the *fixed* 15 human labels swung from
-  0.651 to **0.771** with nothing changed but the sampling. A metric that moves
-  on its own while the reproducible one holds is the whole argument for gating CI
-  on the deterministic number.
+- **root_cause quality is Claude grading Claude, and it moves.** The headline is
+  graded deterministically, but the agent samples: across eight Claude CI runs on
+  the 43-case benchmark it scored 79.1% seven times and 76.7% once — a single case
+  flipping. The judged root_cause score moved far more (100% → 95% → 95% → 97.5%
+  → 90% → 88% across six runs), and the judge's own κ against the *fixed* 15
+  human labels swung from 0.651 to **0.771** with nothing changed but the
+  sampling. A headline that wobbles by one case while the judged score swings is
+  the argument for gating CI on the deterministic number — with the gate set a
+  few points under it to absorb that wobble.
 - **Still a small benchmark.** 43 cases; the three hard bands are 6 each, so one
   case is ~17 points. Widening them from 3 to 6 already moved cascading 33% → 17%
   and partial_signal 33% → 67% — proof the 3-case numbers had been noise. Treat
