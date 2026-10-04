@@ -270,8 +270,10 @@ Two caveats worth stating plainly:
 - **`eval-mock`** — offline, deterministic, no secret. Runs the tests and fails
   the build if escalation accuracy `< 0.50`. This is the build-blocking gate.
 - **`eval-claude`** — runs the real benchmark against Claude, gated at `0.75`,
-  **only if** the `ANTHROPIC_API_KEY` repo secret is set
-  (*Settings → Secrets and variables → Actions*); otherwise it skips cleanly.
+  **only if** the repository variable `RUN_CLAUDE_EVAL` is `true` and the
+  `ANTHROPIC_API_KEY` secret is set (*Settings → Secrets and variables → Actions*).
+  Otherwise GitHub shows the job as **skipped**, not as a green pass — a green
+  check here means the real model actually ran.
 - **`compare-judges`** — opt-in via *Run workflow*; measures candidate judge
   models against the human labels (see [Choosing the judge](#choosing-the-judge)).
 
